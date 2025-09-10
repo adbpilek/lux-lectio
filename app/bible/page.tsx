@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 // On ne charge plus statiquement geneseData, on utilisera un import dynamique
 import { Search, Book, Star, Bookmark, ChevronLeft, ChevronRight } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -45,36 +45,6 @@ const bibleBooks: BibleBook[] = [
   { id: "ez", name: "Ézéchiel", chapters: 48, testament: "AT" },
   { id: "dn", name: "Daniel", chapters: 14, testament: "AT" },
 
-  // Nouveau Testament
-  { id: "mt", name: "Matthieu", chapters: 28, testament: "NT" },
-  { id: "mc", name: "Marc", chapters: 16, testament: "NT" },
-  { id: "lc", name: "Luc", chapters: 24, testament: "NT" },
-  { id: "jn", name: "Jean", chapters: 21, testament: "NT" },
-  { id: "ac", name: "Actes", chapters: 28, testament: "NT" },
-  { id: "rm", name: "Romains", chapters: 16, testament: "NT" },
-  { id: "1co", name: "1 Corinthiens", chapters: 16, testament: "NT" },
-  { id: "2co", name: "2 Corinthiens", chapters: 13, testament: "NT" },
-  { id: "ga", name: "Galates", chapters: 6, testament: "NT" },
-  { id: "ep", name: "Éphésiens", chapters: 6, testament: "NT" },
-  { id: "ph", name: "Philippiens", chapters: 4, testament: "NT" },
-  { id: "col", name: "Colossiens", chapters: 4, testament: "NT" },
-  { id: "1th", name: "1 Thessaloniciens", chapters: 5, testament: "NT" },
-  { id: "2th", name: "2 Thessaloniciens", chapters: 3, testament: "NT" },
-  { id: "1tm", name: "1 Timothée", chapters: 6, testament: "NT" },
-  { id: "2tm", name: "2 Timothée", chapters: 4, testament: "NT" },
-  { id: "tt", name: "Tite", chapters: 3, testament: "NT" },
-  { id: "phm", name: "Philémon", chapters: 1, testament: "NT" },
-  { id: "he", name: "Hébreux", chapters: 13, testament: "NT" },
-  { id: "jc", name: "Jacques", chapters: 5, testament: "NT" },
-  { id: "1p", name: "1 Pierre", chapters: 5, testament: "NT" },
-  { id: "2p", name: "2 Pierre", chapters: 3, testament: "NT" },
-  { id: "1jn", name: "1 Jean", chapters: 5, testament: "NT" },
-  { id: "2jn", name: "2 Jean", chapters: 1, testament: "NT" },
-  { id: "3jn", name: "3 Jean", chapters: 1, testament: "NT" },
-  { id: "jude", name: "Jude", chapters: 1, testament: "NT" },
-  { id: "ap", name: "Apocalypse", chapters: 22, testament: "NT" },
-]
-
 export default function BiblePage() {
   const [selectedBook, setSelectedBook] = useState<BibleBook | null>(null)
   const [selectedChapter, setSelectedChapter] = useState<number>(1)
@@ -85,25 +55,213 @@ export default function BiblePage() {
   const [loading, setLoading] = useState(false)
   const [bookmarks, setBookmarks] = useState<string[]>([])
 
+  // Mapping des IDs courts vers les noms de fichiers
+  const bookMap: { [key: string]: string } = {
+    'gn': 'Genesis',
+    'ex': 'Exodus',
+    'lv': 'Leviticus',
+    'nb': 'Numbers',
+    'dt': 'Deuteronomy',
+    'jos': 'Joshua',
+    'jg': 'Judges',
+    'rt': 'Ruth',
+    '1s': 'I_Samuel',
+    '2s': 'II_Samuel',
+    '1r': 'I_Kings',
+    '2r': 'II_Kings',
+    '1ch': 'I_Chronicles',
+    '2ch': 'II_Chronicles',
+    'esd': 'Ezra',
+    'ne': 'Nehemiah',
+    'tb': 'Tobit',
+    'jdt': 'Judith',
+    'est': 'Esther',
+    'jb': 'Job',
+    'ps': 'Psalms',
+    'pr': 'Proverbs',
+    'qo': 'Ecclesiastes',
+    'ct': 'Song_of_Solomon',
+    'sg': 'Wisdom',
+    'si': 'Sirach',
+    'is': 'Isaiah',
+    'jr': 'Jeremiah',
+    'lm': 'Lamentations',
+    'ba': 'Baruch',
+    'ez': 'Ezekiel',
+    'dn': 'Daniel',
+    'os': 'Hosea',
+    'jl': 'Joel',
+    'am': 'Amos',
+    'ab': 'Obadiah',
+    'jon': 'Jonah',
+    'mi': 'Micah',
+    'na': 'Nahum',
+    'ha': 'Habakkuk',
+    'so': 'Zephaniah',
+    'ag': 'Haggai',
+    'za': 'Zechariah',
+    'ml': 'Malachi',
+    '1m': 'I_Maccabees',
+    '2m': 'II_Maccabees',
+    'mt': 'Matthew',
+    'mc': 'Mark',
+    'lc': 'Luke',
+    'jn': 'John',
+    'ac': 'Acts',
+    'rm': 'Romans',
+    '1co': 'I_Corinthians',
+    '2co': 'II_Corinthians',
+    'ga': 'Galatians',
+    'ep': 'Ephesians',
+    'ph': 'Philippians',
+    'col': 'Colossians',
+    '1th': 'I_Thessalonians',
+    '2th': 'II_Thessalonians',
+    '1tm': 'I_Timothy',
+    '2tm': 'II_Timothy',
+    'tt': 'Titus',
+    'phm': 'Philemon',
+    'he': 'Hebrews',
+    'jc': 'James',
+    '1p': 'I_Peter',
+    '2p': 'II_Peter',
+    '1jn': 'I_John',
+    '2jn': 'II_John',
+    '3jn': 'III_John',
+    'jude': 'Jude',
+    'ap': 'Revelation_of_John'
+  };
+
+  // Fonction pour charger un chapitre
   const fetchChapterContent = async (bookId: string, chapter: number) => {
     setLoading(true)
     try {
-      // On tente de charger dynamiquement le fichier JSON du livre
-      let data: any = null;
-      if (bookId === 'gn') {
-        data = await import(`../../public/genese.json`);
-      } else if (bookId === 'ex') {
-        data = await import(`../../public/exode.json`);
-      } else if (bookId === 'lv') {
-        data = await import(`../../public/levitique.json`);
-      } else if (bookId === 'nb') {
-        data = await import(`../../public/nombres.json`);
-      } else if (bookId === 'dt') {
-        data = await import(`../../public/deuteronome.json`);
+      const fileName = bookMap[bookId];
+      if (!fileName) {
+        throw new Error(`Book ID ${bookId} not found in mapping`);
       }
-      if (data && data.chapitres) {
-        const chapObj = data.chapitres.find((c: any) => c.chapitre === chapter);
-        const verses = chapObj ? chapObj.versets : [];
+      const data = await import(`../../public/bibleCathliqueCrampon/${fileName}.json`);
+      if (data && data.chapters) {
+        const chapObj = data.chapters.find((c: any) => c.chapter === chapter);
+        const verses = chapObj ? chapObj.verses : [];
+        setChapterVerses(verses);
+        setChapterContent("");
+      } else {
+        setChapterContent("Aucun contenu trouvé");
+        setChapterVerses([]);
+      }
+    } catch (error) {
+      setChapterContent("Erreur de chargement du chapitre");
+      setChapterVerses([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (selectedBook) {
+      fetchChapterContent(selectedBook.id, selectedChapter)
+    }
+  }, [selectedBook, selectedChapter])
+
+  return (
+    <div className="p-6 max-w-6xl mx-auto">
+      {selectedBook && (
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border">
+          <h2 className="text-2xl font-bold mb-4 text-liturgical-primary">{selectedBook.name} {selectedChapter}</h2>
+          <div className="space-y-2">
+            {chapterVerses.length > 0 ? (
+              chapterVerses.map((verse: any) => (
+                <div key={verse.verse} className="flex items-start gap-2">
+                  <span className="font-mono text-xs text-gray-400 w-8 text-right select-none">{verse.verse}</span>
+                  <span className="text-base text-liturgical-text leading-relaxed">{verse.text}</span>
+                </div>
+              ))
+            ) : (
+              <div className="text-muted-foreground italic">Aucun verset trouvé pour ce chapitre.</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+        '2s': 'II_Samuel',
+        '1r': 'I_Kings',
+        '2r': 'II_Kings',
+        '1ch': 'I_Chronicles',
+        '2ch': 'II_Chronicles',
+        'esd': 'Ezra',
+        'ne': 'Nehemiah',
+        'tb': 'Tobit',
+        'jdt': 'Judith',
+        'est': 'Esther',
+        'jb': 'Job',
+        'ps': 'Psalms',
+        'pr': 'Proverbs',
+        'qo': 'Ecclesiastes',
+        'ct': 'Song_of_Solomon',
+        'sg': 'Wisdom',
+        'si': 'Sirach',
+        'is': 'Isaiah',
+        'jr': 'Jeremiah',
+        'lm': 'Lamentations',
+        'ba': 'Baruch',
+        'ez': 'Ezekiel',
+        'dn': 'Daniel',
+        'os': 'Hosea',
+        'jl': 'Joel',
+        'am': 'Amos',
+        'ab': 'Obadiah',
+        'jon': 'Jonah',
+        'mi': 'Micah',
+        'na': 'Nahum',
+        'ha': 'Habakkuk',
+        'so': 'Zephaniah',
+        'ag': 'Haggai',
+        'za': 'Zechariah',
+        'ml': 'Malachi',
+        '1m': 'I_Maccabees',
+        '2m': 'II_Maccabees',
+        'mt': 'Matthew',
+        'mc': 'Mark',
+        'lc': 'Luke',
+        'jn': 'John',
+        'ac': 'Acts',
+        'rm': 'Romans',
+        '1co': 'I_Corinthians',
+        '2co': 'II_Corinthians',
+        'ga': 'Galatians',
+        'ep': 'Ephesians',
+        'ph': 'Philippians',
+        'col': 'Colossians',
+        '1th': 'I_Thessalonians',
+        '2th': 'II_Thessalonians',
+        '1tm': 'I_Timothy',
+        '2tm': 'II_Timothy',
+        'tt': 'Titus',
+        'phm': 'Philemon',
+        'he': 'Hebrews',
+        'jc': 'James',
+        '1p': 'I_Peter',
+        '2p': 'II_Peter',
+        '1jn': 'I_John',
+        '2jn': 'II_John',
+        '3jn': 'III_John',
+        'jude': 'Jude',
+        'ap': 'Revelation_of_John'
+      };
+
+      const fileName = bookMap[bookId];
+      if (!fileName) {
+        throw new Error(`Book ID ${bookId} not found in mapping`);
+      }
+
+      const data = await import(`../../public/bibleCathliqueCrampon/${fileName}.json`);
+      
+      if (data && data.chapters) {
+        const chapObj = data.chapters.find((c: any) => c.chapter === chapter);
+        const verses = chapObj ? chapObj.verses : [];
         setChapterVerses(verses);
         setChapterContent("");
       } else {
@@ -111,6 +269,7 @@ export default function BiblePage() {
         setChapterVerses([]);
       }
     } catch (error) {
+      console.error('Error loading chapter:', error);
       setChapterContent(generateDemoContent(bookId, chapter));
       setChapterVerses([]);
     } finally {
@@ -118,6 +277,7 @@ export default function BiblePage() {
     }
   }
 
+  // Fonction utilitaire pour contenu manquant
   const generateDemoContent = (bookId: string, chapter: number) => {
     const book = bibleBooks.find((b) => b.id === bookId)
     if (!book) return "Livre non trouvé"
