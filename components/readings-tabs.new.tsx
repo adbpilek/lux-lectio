@@ -215,6 +215,100 @@ export function ReadingsTabs({ readings, accentColor }: ReadingsTabsProps) {
     </Button>
   );
 
+  // Ajout de l'état pour les boutons
+  const [showComment, setShowComment] = useState(false);
+  const [showPrayer, setShowPrayer] = useState(false);
+  const [location, setLocation] = useState<{lat: number, lon: number} | null>(null);
+  const [localNews, setLocalNews] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+        () => setLocation(null)
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    if (location) {
+      setLocalNews(`Actualité locale pour lat: ${location.lat.toFixed(2)}, lon: ${location.lon.toFixed(2)}`);
+    }
+  }, [location]);
+
+  // États pour le contenu dynamique
+  const [commentaireBref, setCommentaireBref] = useState<string | string[]>('Chargement du commentaire...');
+  const [priereUniverselle, setPriereUniverselle] = useState<string | string[]>('Chargement de la prière universelle...');
+
+  // Récupérer la date du jour liturgique (si disponible)
+  let liturgicalDate: string | undefined = undefined;
+  if (typeof window !== 'undefined') {
+    try {
+      // On tente de récupérer la date depuis le store global (utilisé dans la page principale)
+      const liturgical = (window as any).luxLectioLiturgical;
+      if (liturgical && liturgical.currentDate) {
+        liturgicalDate = liturgical.currentDate.toISOString().slice(0, 10);
+      }
+    } catch {}
+  }
+
+  // Appel API pour charger le commentaire et la prière universelle selon la date et la localisation
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const date = liturgicalDate || new Date().toISOString().slice(0, 10);
+    if (location) {
+      fetch(`/api/commentary-prayer?date=${date}&lat=${location.lat}&lon=${location.lon}`)
+        .then(res => res.json())
+        .then(data => {
+          setCommentaireBref(data.commentary || 'Aucun commentaire disponible.');
+          setPriereUniverselle(data.prayer || 'Aucune prière universelle disponible.');
+        })
+        .catch(() => {
+          setCommentaireBref('Aucun commentaire disponible.');
+          setPriereUniverselle('Aucune prière universelle disponible.');
+        });
+    } else {
+      fetch(`/api/commentary-prayer?date=${date}`)
+        .then(res => res.json())
+        .then(data => {
+          setCommentaireBref(data.commentary || 'Aucun commentaire disponible.');
+          setPriereUniverselle(data.prayer || 'Aucune prière universelle disponible.');
+        })
+        .catch(() => {
+          setCommentaireBref('Aucun commentaire disponible.');
+          setPriereUniverselle('Aucune prière universelle disponible.');
+        });
+    }
+  }, [location, liturgicalDate]);
+
+  // Ajout des deux onglets supplémentaires
+  const extraTabs = [
+    {
+      label: 'Commentaire',
+      icon: '💬',
+      content: (
+        <div className="p-6">
+          <h2 className="text-xl font-bold mb-2">Commentaire bref</h2>
+          {Array.isArray(commentaireBref)
+            ? commentaireBref.map((line, i) => <div key={i} className="mb-2">{line}</div>)
+            : <div>{commentaireBref}</div>}
+        </div>
+      )
+    },
+    {
+      label: 'Prière universelle',
+      icon: '🙏',
+      content: (
+        <div className="p-6">
+          <h2 className="text-xl font-bold mb-2">Prière universelle</h2>
+          {Array.isArray(priereUniverselle)
+            ? priereUniverselle.map((line: string, i: number) => <div key={i} className="mb-2">{line}</div>)
+            : <div>{priereUniverselle}</div>}
+        </div>
+      )
+    }
+  ];
+
   return (
     <Tabs value={tab} onValueChange={setTab}>
       <div className="w-full overflow-x-auto scrollbar-thin no-scrollbar" style={{ WebkitOverflowScrolling: 'touch', scrollBehavior: 'smooth' }}>
@@ -322,6 +416,23 @@ export function ReadingsTabs({ readings, accentColor }: ReadingsTabsProps) {
     );
             }
           })}
+          {/* Onglets supplémentaires */}
+          {extraTabs.map((tabItem, idx) => (
+            <Button
+              key={`extra-${idx}`}
+              variant={tab === String(normalizedReadings.length + idx) ? "default" : "outline"}
+              className={getButtonClasses(tab === String(normalizedReadings.length + idx)) + " w-[170px] md:w-[200px] max-w-[200px] px-4 py-2 rounded-lg font-semibold text-base md:text-sm flex items-center justify-between"}
+              onClick={() => setTab(String(normalizedReadings.length + idx))}
+              style={{ justifyContent: 'space-between' }}
+            >
+              <span className="flex items-center gap-2 overflow-hidden">
+                <span className="text-lg md:text-base" style={{ fontFamily: 'Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji, sans-serif' }}>
+                  {tabItem.icon}
+                </span>
+                <span className="truncate">{tabItem.label}</span>
+              </span>
+            </Button>
+          ))}
         </TabsList>
       </div>
 
@@ -356,6 +467,12 @@ export function ReadingsTabs({ readings, accentColor }: ReadingsTabsProps) {
           </TabsContent>
         );
       })}
+      {/* Contenus des onglets supplémentaires */}
+      {extraTabs.map((tabItem, idx) => (
+        <TabsContent key={`extra-content-${idx}`} value={String(normalizedReadings.length + idx)} className="animate-slide-in-right">
+          {tabItem.content}
+        </TabsContent>
+      ))}
     </Tabs>
   );
 }
